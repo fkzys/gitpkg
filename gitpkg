@@ -1082,7 +1082,7 @@ _update_standalone_package() {
     fi
 
     printf ':: Updating %s [%s -> %s]...\n' "$name" "${old_commit:0:8}" "${new_commit:0:8}"
-    git -C "$srcdir" reset --hard "origin/${branch}"
+    git -C "$srcdir" reset --hard "origin/${branch}" &>/dev/null
 
     _remove_tracked "$name"
     _stage_and_deploy "$name" 0 "$srcdir" "$srcdir"
@@ -1192,7 +1192,7 @@ _update_collection_package() {
     fi
 
     printf ':: Updating %s [%s -> %s] (collection: %s)...\n' "$name" "${old_commit:0:8}" "${new_commit:0:8}" "$collection"
-    git -C "$colldir" reset --hard "origin/${branch}"
+    git -C "$colldir" reset --hard "origin/${branch}" &>/dev/null
 
     local workdir="${colldir}/${name}"
     if [[ ! -f "${workdir}/Makefile" ]]; then
