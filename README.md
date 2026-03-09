@@ -207,6 +207,7 @@ User-added sources are stored in `/etc/gitpkg/repos.conf`.
 | `--skip-inspect` | install, update | Skip Makefile review and confirmation |
 | `--fix` | verify | Auto-repair permissions |
 | `--needed` | install | Do not reinstall up to date packages |
+| `--nodeps` | install, update | Skip dependency check |
 
 ## License
 
