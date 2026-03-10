@@ -7,6 +7,25 @@ Minimal package manager for git + make projects. Repo-agnostic.
 Nobody uses my software anyway, and maintaining AUR packages is tedious — so this happened.
 Each project is just a repo with a Makefile, `gitpkg install` — done.
 
+## Install
+
+### Arch Linux (AUR)
+
+```
+yay -S gitpkg
+```
+
+### Manual
+
+```
+sudo make install
+```
+
+### Uninstall
+
+```
+sudo make uninstall
+```
 ## How it works
 
 ```
@@ -82,22 +101,19 @@ for review before proceeding.
 
 Use `--skip-inspect` to bypass Makefile review during install and update.
 
+## Coexistence with system package managers
+
+gitpkg checks whether a package is already managed by pacman, dpkg, or rpm
+before installing, updating, or removing. If a conflict is detected, the
+operation is refused with a message to use the system package manager instead.
+
+This prevents file conflicts when the same software is available both
+as a gitpkg package and as a system/AUR package.
+
 ## Dependencies
 
 - `bash`, `git`, `make`, `find`, `awk`, `sha256sum`
 - `bubblewrap` (`bwrap`)
-
-## Install
-
-```
-sudo make install
-```
-
-## Uninstall
-
-```
-sudo make uninstall
-```
 
 ## Package requirements
 
