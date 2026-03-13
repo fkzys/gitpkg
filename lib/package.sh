@@ -249,11 +249,24 @@ _stage_and_deploy() {
         die "make install produced no files"
     fi
 
+    # ── Load backup list from package source ──
+    local -A _backup_files=()
+    if [[ -f "${workdir}/backup" ]]; then
+        while IFS= read -r _bline; do
+            [[ -z "$_bline" || "$_bline" == \#* ]] && continue
+            _backup_files["${_bline#/}"]=1
+        done < "${workdir}/backup"
+        cp "${workdir}/backup" "${dbdir}/backup"
+    fi
+
+    # ── Dry run ──
     if [[ "$dry_run" -eq 1 ]]; then
         printf '   Would deploy %d files:\n' "$file_count"
         while IFS= read -r f; do
             [[ -z "$f" ]] && continue
-            if [[ -e "/${f}" || -L "/${f}" ]]; then
+            if [[ -n "${_backup_files[$f]:-}" && -e "/${f}" ]]; then
+                printf '   /%s  (backup — existing preserved)\n' "$f"
+            elif [[ -e "/${f}" || -L "/${f}" ]]; then
                 printf '   /%s  (overwrite)\n' "$f"
             else
                 printf '   /%s\n' "$f"
@@ -264,25 +277,78 @@ _stage_and_deploy() {
         return 1
     fi
 
+    # ── Deploy ──
+    local _bkp_chk_tmp="${dbdir}/backup_checksums.tmp"
+    : > "$_bkp_chk_tmp"
+
     printf ':: Deploying %s (%d files)...\n' "$name" "$file_count"
     while IFS= read -r f; do
         [[ -z "$f" ]] && continue
         local dest="/${f}"
-        local destdir
-        destdir=$(dirname "$dest")
+        local staged="${STAGE_DIR}/${f}"
+
+        # ── Backup file handling ──
+        if [[ -n "${_backup_files[$f]:-}" && -f "$staged" && ! -L "$staged" ]]; then
+            local _staged_hash
+            _staged_hash=$(sha256sum "$staged" | awk '{print $1}')
+            # Always record the package-provided hash for future comparison
+            printf '%s\t%s\n' "$_staged_hash" "$f" >> "$_bkp_chk_tmp"
+
+            if [[ -f "$dest" ]]; then
+                local _sys_hash
+                _sys_hash=$(sha256sum "$dest" | awk '{print $1}')
+
+                # System file identical to new version — skip
+                if [[ "$_sys_hash" == "$_staged_hash" ]]; then
+                    continue
+                fi
+
+                # Was the file modified by the user?
+                local _old_pkg_hash=""
+                if [[ -f "${dbdir}/backup_checksums" ]]; then
+                    _old_pkg_hash=$(awk -F'\t' -v p="$f" '$2 == p {print $1}' \
+                        "${dbdir}/backup_checksums" 2>/dev/null)
+                fi
+
+                if [[ -n "$_old_pkg_hash" && "$_sys_hash" == "$_old_pkg_hash" ]]; then
+                    # User didn't modify — safe to overwrite with new version
+                    local destdir; destdir=$(dirname "$dest")
+                    [[ -d "$destdir" ]] || install -d -m755 "$destdir"
+                    local mode; mode=$(stat -c '%a' "$staged")
+                    install -m "$mode" "$staged" "$dest"
+                else
+                    # User modified — save new version as .gitpkg.new
+                    local destdir; destdir=$(dirname "$dest")
+                    [[ -d "$destdir" ]] || install -d -m755 "$destdir"
+                    local mode; mode=$(stat -c '%a' "$staged")
+                    install -m "$mode" "$staged" "${dest}.gitpkg.new"
+                    printf '   warning: /%s was modified — new version at %s.gitpkg.new\n' \
+                        "$f" "$dest"
+                fi
+                continue
+            fi
+            # File doesn't exist on system — fall through to normal install
+        fi
+
+        # ── Normal deploy ──
+        local destdir; destdir=$(dirname "$dest")
         [[ -d "$destdir" ]] || install -d -m755 "$destdir"
 
-        local staged="${STAGE_DIR}/${f}"
         if [[ -L "$staged" ]]; then
-            local link_target
-            link_target=$(readlink "$staged")
+            local link_target; link_target=$(readlink "$staged")
             ln -sf "$link_target" "$dest"
         else
-            local mode
-            mode=$(stat -c '%a' "$staged")
+            local mode; mode=$(stat -c '%a' "$staged")
             install -m "$mode" "$staged" "$dest"
         fi
     done < "${dbdir}/files"
+
+    # Finalize backup checksums
+    if [[ -s "$_bkp_chk_tmp" ]]; then
+        mv "$_bkp_chk_tmp" "${dbdir}/backup_checksums"
+    else
+        rm -f "$_bkp_chk_tmp" "${dbdir}/backup_checksums"
+    fi
 
     rm -rf "$STAGE_DIR"
     STAGE_DIR=""
@@ -299,12 +365,31 @@ _stage_and_deploy() {
 _remove_tracked() {
     local name="$1"
     local filelist="${DBDIR}/${name}/files"
+    local backupfile="${DBDIR}/${name}/backup"
     [[ -f "$filelist" ]] || return 0
 
-    local removed=0
+    # Load backup/preserve list
+    local -A _preserve=()
+    if [[ -f "$backupfile" ]]; then
+        while IFS= read -r _line; do
+            [[ -z "$_line" || "$_line" == \#* ]] && continue
+            _preserve["${_line#/}"]=1
+        done < "$backupfile"
+    fi
+
+    local removed=0 preserved=0
     while IFS= read -r f; do
         [[ -z "$f" ]] && continue
         _validate_path "$f" || continue
+
+        if [[ -n "${_preserve[$f]:-}" ]]; then
+            if [[ -L "/${f}" || -f "/${f}" ]]; then
+                printf '   Keeping /%s (backup)\n' "$f"
+                preserved=$((preserved + 1))
+            fi
+            continue
+        fi
+
         if [[ -L "/${f}" || -f "/${f}" ]]; then
             rm -f "/${f}"
             removed=$((removed + 1))
@@ -324,6 +409,9 @@ _remove_tracked() {
     done
 
     printf '   Removed %d file(s)\n' "$removed"
+    if [[ $preserved -gt 0 ]]; then
+        printf '   Preserved %d backup file(s) — remove manually if needed\n' "$preserved"
+    fi
 }
 
 # ── Checksums & integrity ─────────────────────────────────
