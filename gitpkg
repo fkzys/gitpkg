@@ -10,9 +10,11 @@ set -euo pipefail
 export GIT_TERMINAL_PROMPT=0
 
 readonly LIBDIR="/usr/lib/gitpkg"
-source "${LIBDIR}/common.sh"
-source "${LIBDIR}/sandbox.sh"
-source "${LIBDIR}/package.sh"
+_src() { local p; p=$(verify-lib "$1" "$LIBDIR/") && source "$p" || exit 1; }
+
+_src "${LIBDIR}/common.sh"
+_src "${LIBDIR}/sandbox.sh"
+_src "${LIBDIR}/package.sh"
 
 # ── Help ──────────────────────────────────────────────────
 
