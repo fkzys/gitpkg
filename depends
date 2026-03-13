@@ -5,3 +5,4 @@ system:bwrap
 system:find
 system:awk
 system:sha256sum
+gitpkg:verify-lib
