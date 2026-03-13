@@ -188,7 +188,14 @@ _install_single() {
         fi
         printf 'warning: %s is up to date -- reinstalling\n' "$name"
         _remove_tracked "$name"
+        # Preserve backup checksums for config file handling across reinstall
+        local _saved_bkp_chk=""
+        [[ -f "${dbdir}/backup_checksums" ]] && _saved_bkp_chk=$(cat "${dbdir}/backup_checksums")
         rm -rf "$dbdir"
+        if [[ -n "$_saved_bkp_chk" ]]; then
+            mkdir -p "$dbdir"
+            printf '%s\n' "$_saved_bkp_chk" > "${dbdir}/backup_checksums"
+        fi
     fi
 
     local -a clone_urls=()
@@ -603,7 +610,24 @@ cmd_remove() {
     if [[ "$dry_run" -eq 1 ]]; then
         printf 'Would remove %s:\n' "$name"
         local filelist="${DBDIR}/${name}/files"
-        [[ -f "$filelist" ]] && sed 's|^|   /|' "$filelist"
+        local backupfile="${DBDIR}/${name}/backup"
+        local -A _preserve=()
+        if [[ -f "$backupfile" ]]; then
+            while IFS= read -r _line; do
+                [[ -z "$_line" || "$_line" == \#* ]] && continue
+                _preserve["${_line#/}"]=1
+            done < "$backupfile"
+        fi
+        if [[ -f "$filelist" ]]; then
+            while IFS= read -r f; do
+                [[ -z "$f" ]] && continue
+                if [[ -n "${_preserve[$f]:-}" ]]; then
+                    printf '   /%s  (backup — preserved)\n' "$f"
+                else
+                    printf '   /%s\n' "$f"
+                fi
+            done < "$filelist"
+        fi
         return
     fi
 
