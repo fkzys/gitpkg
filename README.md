@@ -153,6 +153,27 @@ system:ffmpeg
 
 Use `--nodeps` to skip the check.
 
+### Backup file
+
+Packages may include a `backup` file listing paths that should be
+preserved on removal and handled carefully on update. Paths are
+relative, without leading `/`.
+
+Example `backup`:
+
+```
+etc/myapp.conf
+```
+
+Behavior:
+
+| Scenario | Result |
+|----------|--------|
+| Remove | File stays on disk |
+| Update, user didn't edit config | Overwritten with new version |
+| Update, user edited config | New version saved as `<path>.gitpkg.new` |
+| First install | Installed normally |
+```
 
 ## Usage
 
@@ -210,7 +231,7 @@ User-added sources are stored in `/etc/gitpkg/repos.conf`.
 | `/etc/gitpkg/pkglist` | Known packages for search/completion |
 | `/etc/gitpkg/collections` | Default collection names (shipped) |
 | `/etc/gitpkg/collections.conf` | User-added collections |
-| `/var/lib/gitpkg/<name>/` | Package metadata (files, commit, urls, checksums, collection) |
+| `/var/lib/gitpkg/<name>/` | Package metadata (files, commit, urls, checksums, collection, backup) |
 | `/var/cache/gitpkg/<name>/` | Cloned source trees (standalone) |
 | `/var/cache/gitpkg/_collections/<name>/` | Cloned collection repositories |
 
