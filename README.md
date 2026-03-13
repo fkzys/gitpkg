@@ -112,8 +112,9 @@ as a gitpkg package and as a system/AUR package.
 
 ## Dependencies
 
-- `bash`, `git`, `make`, `find`, `awk`, `sha256sum`
+- `bash`, `git`, `make`, `find`, `awk`, `sha256sum`, `timeout`
 - `bubblewrap` (`bwrap`)
+- '[verify-lib](https://gitlab.com/fkzys/verify-lib)'
 
 ## Package requirements
 
@@ -178,19 +179,19 @@ Behavior:
 ## Usage
 
 ```
-gitpkg install [--needed] [--nodeps] <name>...
-gitpkg update [--nodeps] [name...]
-gitpkg remove <name>
+gitpkg install [--needed] [--nodeps] [--skip-inspect] <name>...
+gitpkg update [--nodeps] [--skip-inspect] [name...]
+gitpkg remove [--nodeps] <name>
 gitpkg list
 gitpkg status
 gitpkg files <name>
 gitpkg inspect <name> [url]
 gitpkg verify [--fix] [name]
-gitpkg repo-add <base_url>
-gitpkg repo-del <base_url>
+sudo gitpkg repo-add <base_url>
+sudo gitpkg repo-del <base_url>
 gitpkg repo-list
-gitpkg collection-add <name>
-gitpkg collection-del <name>
+sudo gitpkg collection-add <name>
+sudo gitpkg collection-del <name>
 gitpkg collection-list
 gitpkg search <query>
 ```
@@ -231,7 +232,7 @@ User-added sources are stored in `/etc/gitpkg/repos.conf`.
 | `/etc/gitpkg/pkglist` | Known packages for search/completion |
 | `/etc/gitpkg/collections` | Default collection names (shipped) |
 | `/etc/gitpkg/collections.conf` | User-added collections |
-| `/var/lib/gitpkg/<name>/` | Package metadata (files, commit, urls, checksums, collection, backup) |
+| `/var/lib/gitpkg/<name>/` | Package metadata (files, commit, urls, checksums, collection, backup, backup_checksums, depends) |
 | `/var/cache/gitpkg/<name>/` | Cloned source trees (standalone) |
 | `/var/cache/gitpkg/_collections/<name>/` | Cloned collection repositories |
 
@@ -244,7 +245,7 @@ User-added sources are stored in `/etc/gitpkg/repos.conf`.
 | `--skip-inspect` | install, update | Skip Makefile review and confirmation |
 | `--fix` | verify | Auto-repair permissions |
 | `--needed` | install | Do not reinstall up to date packages |
-| `--nodeps` | install, update | Skip dependency check |
+| `--nodeps` | install, update, remove | Skip dependency check |
 
 ## License
 
