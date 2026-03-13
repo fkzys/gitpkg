@@ -20,7 +20,7 @@ _src "${LIBDIR}/package.sh"
 
 show_help() {
     cat << 'EOF'
-gitpkg v0.7.0 — git + make package manager
+gitpkg v0.7.1 — git + make package manager
 
 Usage: gitpkg <command> [options] [args]
 
@@ -45,7 +45,7 @@ Options:
     -n, --dry-run    Show what would be done (install, update, remove)
     -y, --yes        Skip confirmation (remove)
     --fix            Auto-repair permission anomalies (verify)
-    --skip-inspect   Skip Makefile review (install)
+    --skip-inspect   Skip Makefile review (install, update)
     --needed         Do not reinstall up to date packages
     --nodeps         Skip dependency check (install, update, remove)
     -h, --help       Show this help
