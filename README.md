@@ -1,5 +1,8 @@
 # gitpkg
 
+[![CI](https://github.com/rpPH4kQocMjkm2Ve/gitpkg/actions/workflows/ci.yml/badge.svg)](https://github.com/rpPH4kQocMjkm2Ve/gitpkg/actions/workflows/ci.yml)
+![License](https://img.shields.io/github/license/rpPH4kQocMjkm2Ve/gitpkg)
+
 Minimal package manager for git + make projects. Repo-agnostic.
 
 ## Why
