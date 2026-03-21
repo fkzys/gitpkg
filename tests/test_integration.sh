@@ -26,6 +26,10 @@ fail() { FAIL=$((FAIL + 1)); printf '  FAIL: %s\n' "$1"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Source library for shared constants; skip auto-init in test context
+_GITPKG_NO_INIT=1
+source "${SCRIPT_DIR}/lib/common.sh"
+
 # ── Bootstrap gitpkg from source tree if not installed ─────
 
 _SELF_INSTALLED=0
@@ -62,7 +66,7 @@ cleanup() {
     rm -rf "/var/lib/gitpkg/${PKG}"
     rm -rf "/var/cache/gitpkg/${PKG}"
     rm -f "/usr/bin/${PKG}"
-    rm -f /var/lock/gitpkg.lock
+    rm -f "$LOCK_FILE"
     rm -rf "$TMP"
     if [[ $_SELF_INSTALLED -eq 1 ]]; then
         rm -f /usr/bin/gitpkg
