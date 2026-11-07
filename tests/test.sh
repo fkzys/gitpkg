@@ -323,4 +323,30 @@ _is_system_managed "definitely-not-a-real-package-xyz-12345" \
 
 PATH="$_saved_path"
 
+# ════════════════════════════════════════════════════════
+# _verify_permissions (package.sh)
+# ════════════════════════════════════════════════════════
+
+section "_verify_permissions"
+
+# shellcheck source=../lib/package.sh
+source "${PROJECT_ROOT}/lib/package.sh"
+
+PERMS_BIN="${TMPDIR_TEST}/perms_bin"
+# Every dir appears to have mode 700, so all EXPECTED_PERMS entries mismatch.
+make_mock_in "$PERMS_BIN" stat 'echo 700'
+make_mock_in "$PERMS_BIN" chmod "printf '%s\n' \"\$*\" >> '${TMPDIR_TEST}/chmod_calls'"
+
+rc=$( ( PATH="${PERMS_BIN}:${PATH}"; _verify_permissions 0 >/dev/null; echo $? ) )
+[[ "$rc" -eq 1 ]] && ok "anomalies without --fix exit 1" || fail "anomalies without --fix exit ${rc}"
+[[ ! -e "${TMPDIR_TEST}/chmod_calls" ]] && ok "no chmod without --fix" || fail "chmod called without --fix"
+
+rc=$( ( PATH="${PERMS_BIN}:${PATH}"; _verify_permissions 1 >/dev/null; echo $? ) )
+[[ "$rc" -eq 0 ]] && ok "repairable anomalies with --fix exit 0" || fail "repairable anomalies with --fix exit ${rc}"
+[[ -s "${TMPDIR_TEST}/chmod_calls" ]] && ok "chmod called with --fix" || fail "chmod not called with --fix"
+
+make_mock_in "$PERMS_BIN" chmod 'exit 1'
+rc=$( ( PATH="${PERMS_BIN}:${PATH}"; _verify_permissions 1 >/dev/null 2>&1; echo $? ) )
+[[ "$rc" -eq 1 ]] && ok "failed repair with --fix exit 1" || fail "failed repair with --fix exit ${rc}"
+
 summary

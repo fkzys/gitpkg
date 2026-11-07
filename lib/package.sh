@@ -579,6 +579,7 @@ _verify_package() {
 _verify_permissions() {
     local fix="${1:-0}"
     local bad=0
+    local fixed=0
 
     echo ":: Verifying directory permissions..."
     local d
@@ -590,11 +591,16 @@ _verify_permissions() {
         if [[ "$mode" != "$expected" ]]; then
             if [[ "$fix" -eq 1 ]]; then
                 printf '   WARN: %s has mode %s, expected %s — fixing!\n' "$d" "$mode" "$expected"
-                chmod "$expected" "$d"
+                if chmod "$expected" "$d"; then
+                    fixed=1
+                else
+                    printf '   ERROR: failed to fix mode of %s\n' "$d" >&2
+                    bad=1
+                fi
             else
                 printf '   WARN: %s has mode %s, expected %s\n' "$d" "$mode" "$expected"
+                bad=1
             fi
-            bad=1
         else
             printf '   OK: %s %s\n' "$d" "$mode"
         fi
@@ -602,7 +608,9 @@ _verify_permissions() {
 
     if [[ "$bad" -eq 1 && "$fix" -eq 0 ]]; then
         echo "Permission anomalies detected. Run 'gitpkg verify --fix' to repair."
-    elif [[ "$bad" -eq 1 && "$fix" -eq 1 ]]; then
+    elif [[ "$bad" -eq 1 ]]; then
+        echo "Some permission anomalies could not be repaired." >&2
+    elif [[ "$fixed" -eq 1 ]]; then
         echo "Permission anomalies were repaired."
     fi
 
