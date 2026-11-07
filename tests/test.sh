@@ -345,8 +345,11 @@ rc=$( ( PATH="${PERMS_BIN}:${PATH}"; _verify_permissions 0 >/dev/null; echo $? )
 [[ "$rc" -eq 1 ]] && ok "anomalies without --fix exit 1" || fail "anomalies without --fix exit ${rc}"
 [[ ! -e "${TMPDIR_TEST}/chmod_calls" ]] && ok "no chmod without --fix" || fail "chmod called without --fix"
 
-rc=$( ( PATH="${PERMS_BIN}:${PATH}"; _verify_permissions 1 >/dev/null; echo $? ) )
+out=$( ( PATH="${PERMS_BIN}:${PATH}"; _verify_permissions 1 ) )
+rc=$?
 [[ "$rc" -eq 0 ]] && ok "repairable anomalies with --fix exit 0" || fail "repairable anomalies with --fix exit ${rc}"
+grep -qE 'Repaired [0-9]+, failed 0\.' <<< "$out" \
+    && ok "success summary counts on stdout" || fail "success summary missing from stdout"
 [[ -s "${TMPDIR_TEST}/chmod_calls" ]] && ok "chmod called with --fix" || fail "chmod not called with --fix"
 
 make_mock_in "$PERMS_BIN" chmod 'exit 1'
