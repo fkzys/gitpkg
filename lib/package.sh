@@ -612,7 +612,7 @@ _verify_permissions() {
     elif [[ "$failed" -gt 0 ]]; then
         printf 'Repaired %d, failed %d.\n' "$fixed" "$failed" >&2
     elif [[ "$fixed" -gt 0 ]]; then
-        echo "Permission anomalies were repaired."
+        printf 'Repaired %d, failed 0.\n' "$fixed"
     fi
 
     if [[ "$bad" -eq 1 || "$failed" -gt 0 ]]; then
