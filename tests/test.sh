@@ -323,4 +323,60 @@ _is_system_managed "definitely-not-a-real-package-xyz-12345" \
 
 PATH="$_saved_path"
 
+# ════════════════════════════════════════════════════════
+# _verify_permissions (package.sh)
+# ════════════════════════════════════════════════════════
+
+section "_verify_permissions"
+
+# shellcheck source=../lib/package.sh
+source "${PROJECT_ROOT}/lib/package.sh"
+
+PERMS_BIN="${TMPDIR_TEST}/perms_bin"
+# Mode absent from EXPECTED_PERMS, so every existing dir is seen as anomalous.
+sentinel=777
+while [[ " ${EXPECTED_PERMS[*]} " == *" ${sentinel} "* ]]; do
+    sentinel=$((sentinel - 1))
+done
+make_mock_in "$PERMS_BIN" stat "echo ${sentinel}"
+make_mock_in "$PERMS_BIN" chmod "printf '%s\n' \"\$*\" >> '${TMPDIR_TEST}/chmod_calls'"
+
+rc=$( ( PATH="${PERMS_BIN}:${PATH}"; _verify_permissions 0 >/dev/null; echo $? ) )
+[[ "$rc" -eq 1 ]] && ok "anomalies without --fix exit 1" || fail "anomalies without --fix exit ${rc}"
+[[ ! -e "${TMPDIR_TEST}/chmod_calls" ]] && ok "no chmod without --fix" || fail "chmod called without --fix"
+
+out=$( ( PATH="${PERMS_BIN}:${PATH}"; _verify_permissions 1 ) )
+rc=$?
+[[ "$rc" -eq 0 ]] && ok "repairable anomalies with --fix exit 0" || fail "repairable anomalies with --fix exit ${rc}"
+grep -qE 'Repaired [0-9]+, failed 0\.' <<< "$out" \
+    && ok "success summary counts on stdout" || fail "success summary missing from stdout"
+[[ -s "${TMPDIR_TEST}/chmod_calls" ]] && ok "chmod called with --fix" || fail "chmod not called with --fix"
+
+make_mock_in "$PERMS_BIN" chmod 'exit 1'
+rc=$( ( PATH="${PERMS_BIN}:${PATH}"; _verify_permissions 1 >/dev/null 2>&1; echo $? ) )
+[[ "$rc" -eq 1 ]] && ok "failed repair with --fix exit 1" || fail "failed repair with --fix exit ${rc}"
+
+mkdir -p "${TMPDIR_TEST}/okdir" "${TMPDIR_TEST}/faildir"
+make_mock_in "$PERMS_BIN" chmod 'case "$2" in */faildir) exit 1 ;; *) exit 0 ;; esac'
+
+_verify_partial_repair() {
+    bash -c '
+        set -uo pipefail
+        source "$1/lib/package.sh"
+        declare -A EXPECTED_PERMS=(["$2"]=700 ["$3"]=700)
+        PATH="$4:$PATH"
+        _verify_permissions 1
+    ' _ "$PROJECT_ROOT" "${TMPDIR_TEST}/okdir" "${TMPDIR_TEST}/faildir" "$PERMS_BIN"
+}
+
+_verify_partial_repair > "${TMPDIR_TEST}/verify.out" 2> "${TMPDIR_TEST}/verify.err"
+rc=$?
+[[ "$rc" -eq 1 ]] && ok "partial repair exit 1" || fail "partial repair exit ${rc}"
+grep -q 'Repaired 1, failed 1' "${TMPDIR_TEST}/verify.err" \
+    && ok "partial summary counts on stderr" || fail "partial summary counts missing from stderr"
+grep -q 'Repaired' "${TMPDIR_TEST}/verify.out" \
+    && fail "partial summary leaked to stdout" || ok "partial summary absent from stdout"
+grep -q 'ERROR: failed to fix mode of' "${TMPDIR_TEST}/verify.err" \
+    && ok "per-dir ERROR on stderr" || fail "per-dir ERROR missing from stderr"
+
 summary
