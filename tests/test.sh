@@ -333,8 +333,12 @@ section "_verify_permissions"
 source "${PROJECT_ROOT}/lib/package.sh"
 
 PERMS_BIN="${TMPDIR_TEST}/perms_bin"
-# Every dir appears to have mode 700, so all EXPECTED_PERMS entries mismatch.
-make_mock_in "$PERMS_BIN" stat 'echo 700'
+# Mode absent from EXPECTED_PERMS, so every existing dir is seen as anomalous.
+sentinel=777
+while [[ " ${EXPECTED_PERMS[*]} " == *" ${sentinel} "* ]]; do
+    sentinel=$((sentinel - 1))
+done
+make_mock_in "$PERMS_BIN" stat "echo ${sentinel}"
 make_mock_in "$PERMS_BIN" chmod "printf '%s\n' \"\$*\" >> '${TMPDIR_TEST}/chmod_calls'"
 
 rc=$( ( PATH="${PERMS_BIN}:${PATH}"; _verify_permissions 0 >/dev/null; echo $? ) )
@@ -348,5 +352,28 @@ rc=$( ( PATH="${PERMS_BIN}:${PATH}"; _verify_permissions 1 >/dev/null; echo $? )
 make_mock_in "$PERMS_BIN" chmod 'exit 1'
 rc=$( ( PATH="${PERMS_BIN}:${PATH}"; _verify_permissions 1 >/dev/null 2>&1; echo $? ) )
 [[ "$rc" -eq 1 ]] && ok "failed repair with --fix exit 1" || fail "failed repair with --fix exit ${rc}"
+
+mkdir -p "${TMPDIR_TEST}/okdir" "${TMPDIR_TEST}/faildir"
+make_mock_in "$PERMS_BIN" chmod 'case "$2" in */faildir) exit 1 ;; *) exit 0 ;; esac'
+
+cat > "${TMPDIR_TEST}/verify_output.sh" <<EOF
+#!/bin/bash
+set -uo pipefail
+source "${PROJECT_ROOT}/lib/package.sh"
+declare -A EXPECTED_PERMS=(["${TMPDIR_TEST}/okdir"]=700 ["${TMPDIR_TEST}/faildir"]=700)
+PATH="${PERMS_BIN}:\$PATH"
+_verify_permissions 1
+exit \$?
+EOF
+
+bash "${TMPDIR_TEST}/verify_output.sh" > "${TMPDIR_TEST}/verify.out" 2> "${TMPDIR_TEST}/verify.err"
+rc=$?
+[[ "$rc" -eq 1 ]] && ok "partial repair exit 1" || fail "partial repair exit ${rc}"
+grep -q 'Repaired 1, failed 1' "${TMPDIR_TEST}/verify.err" \
+    && ok "partial summary counts on stderr" || fail "partial summary counts missing from stderr"
+grep -q 'Repaired' "${TMPDIR_TEST}/verify.out" \
+    && fail "partial summary leaked to stdout" || ok "partial summary absent from stdout"
+grep -q 'ERROR: failed to fix mode of' "${TMPDIR_TEST}/verify.err" \
+    && ok "per-dir ERROR on stderr" || fail "per-dir ERROR missing from stderr"
 
 summary
