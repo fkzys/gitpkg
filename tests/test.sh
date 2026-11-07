@@ -356,17 +356,17 @@ rc=$( ( PATH="${PERMS_BIN}:${PATH}"; _verify_permissions 1 >/dev/null 2>&1; echo
 mkdir -p "${TMPDIR_TEST}/okdir" "${TMPDIR_TEST}/faildir"
 make_mock_in "$PERMS_BIN" chmod 'case "$2" in */faildir) exit 1 ;; *) exit 0 ;; esac'
 
-cat > "${TMPDIR_TEST}/verify_output.sh" <<EOF
-#!/bin/bash
-set -uo pipefail
-source "${PROJECT_ROOT}/lib/package.sh"
-declare -A EXPECTED_PERMS=(["${TMPDIR_TEST}/okdir"]=700 ["${TMPDIR_TEST}/faildir"]=700)
-PATH="${PERMS_BIN}:\$PATH"
-_verify_permissions 1
-exit \$?
-EOF
+_verify_partial_repair() {
+    bash -c '
+        set -uo pipefail
+        source "$1/lib/package.sh"
+        declare -A EXPECTED_PERMS=(["$2"]=700 ["$3"]=700)
+        PATH="$4:$PATH"
+        _verify_permissions 1
+    ' _ "$PROJECT_ROOT" "${TMPDIR_TEST}/okdir" "${TMPDIR_TEST}/faildir" "$PERMS_BIN"
+}
 
-bash "${TMPDIR_TEST}/verify_output.sh" > "${TMPDIR_TEST}/verify.out" 2> "${TMPDIR_TEST}/verify.err"
+_verify_partial_repair > "${TMPDIR_TEST}/verify.out" 2> "${TMPDIR_TEST}/verify.err"
 rc=$?
 [[ "$rc" -eq 1 ]] && ok "partial repair exit 1" || fail "partial repair exit ${rc}"
 grep -q 'Repaired 1, failed 1' "${TMPDIR_TEST}/verify.err" \
