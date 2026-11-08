@@ -32,7 +32,7 @@ readonly -a PROTECTED_DIRS=(
 )
 
 readonly -A EXPECTED_PERMS=(
-    [/]=755
+    [/]=555
     [/usr]=755
     [/usr/bin]=755
     [/usr/lib]=755
